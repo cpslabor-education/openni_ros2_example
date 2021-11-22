@@ -4,6 +4,8 @@
 // OpenNI packages
 #include <OpenNI.h>
 
+#define BOOST_NO_EXCEPTIONS
+
 #include <sensor_msgs/msg/compressed_image.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/image_encodings.hpp>
@@ -14,7 +16,11 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <boost/throw_exception.hpp>
 
+void boost::throw_exception(std::exception const& e) {
+    //do nothing
+}
 
 class CameraListener : public rclcpp::Node,
     public openni::VideoStream::NewFrameListener
@@ -180,7 +186,7 @@ public:
 
     virtual void onDeviceStateChanged(const openni::DeviceInfo* pInfo, openni::DeviceState state)
     {
-        RCLCPP_INFO(get_logger(), "Device \"%s\" error state changed to %d\n", pInfo->getUri(), state);
+        RCLCPP_INFO(get_logger(), "Device \"%s\" error state changed to: %d\n", pInfo->getUri(), state);
     }
 
     int initialize()
@@ -212,6 +218,7 @@ public:
         pub_pcl = depth_listener->create_publisher<sensor_msgs::msg::PointCloud2>("pointcloud", qos);
         depth_listener->initialize("depth/image", qos);
         executor.add_node(depth_listener);
+        RCLCPP_INFO(get_logger(), "Initialized ROS2, starting camera");
         // Initialize OpenNI context
         using namespace openni;
         Status rc = openni::OpenNI::initialize();
@@ -333,7 +340,6 @@ public:
         ptCloud->resize(color_image.cols * color_image.rows);
         int r = color_image.rows;
         depth_image.forEach<uint16_t>([&ptCloud, &color_image, r, fx_d, fy_d, cx_d, cy_d](uint16_t &p, const int * position) {
-            //std::cout << p << " " << position[0] << " " << position[1] << std::endl;
             float z = static_cast<float>(p) * 0.001;
             int x = position[0]; int y = position[1];
             (*ptCloud)[x + y * r].x = z;            
@@ -345,27 +351,6 @@ public:
             (*ptCloud)[x + y * r].b = color_image.at<cv::Vec3b>(x, y)[2];
             
         });
-        //ptCloud->resize(color_image.cols * color_image.rows);
-        /*
-        for (int x = 0; x < color_image.cols; x++)
-        {
-            for (int y = 0; y < color_image.rows; y++)
-            {
-                std::cout << static_cast<float>(*p) << ' ';
-                float z = static_cast<float>(*p);
-                pcl::PointXYZ point;
-                point.x = z * 0.01;             
-                point.y = point.x * (x - cx_d) / fx_d;
-                point.z = point.x * (cy_d - y) / fy_d;
-                point.r = color_image.at<cv::Vec3b>(y, x)[0];
-                point.g = color_image.at<cv::Vec3b>(y, x)[1];
-                point.b = color_image.at<cv::Vec3b>(y, x)[2];
-                // Color                
-                ptCloud->points.push_back(point);
-                ++p;
-            }
-        }
-        */
         ptCloud->width = (int)color_image.cols;
         ptCloud->height = (int)color_image.rows;
         pcl::PCLPointCloud2 msg;
@@ -412,7 +397,7 @@ int main(int argc, char ** argv)
     int status = camera_node->initialize();
     if (status == 0)
     {
-        
+        RCLCPP_INFO(camera_node->get_logger(), "Successfully connected OpenNI devices");
         executor.add_node(camera_node);
         executor.spin();
         camera_node->disconnectDevice();

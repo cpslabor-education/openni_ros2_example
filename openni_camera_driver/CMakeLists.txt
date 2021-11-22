@@ -28,6 +28,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(cv_bridge REQUIRED)
+find_package(PCL REQUIRED COMPONENTS COMMON)
 message(STATUS "Found OpenCV version ${OpenCV_VERSION}")
 
 add_executable(openni_camera_node src/openni_camera_node.cpp)
@@ -45,8 +46,10 @@ ament_target_dependencies(
   "cv_bridge"
   OpenCV
 )
+include_directories(${PCL_INCLUDE_DIRS})
+
 message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
-target_link_libraries(openni_camera_node "c:/Program Files/OpenNI2/Lib/OpenNI2.lib")
+target_link_libraries(openni_camera_node "c:/Program Files/OpenNI2/Lib/OpenNI2.lib" ${PCL_LIBRARIES} ${OpenCV_LIBS})
 
 install(TARGETS openni_camera_node
   DESTINATION lib/${PROJECT_NAME})
